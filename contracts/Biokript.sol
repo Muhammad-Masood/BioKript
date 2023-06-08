@@ -599,11 +599,16 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         distributeTokens = ((amount * 10 ** 18) / tSupply) % 10 ** 18;  //allocating the number of tokens to be distributed
         nextDistr = block.timestamp+30 days;
     }
+    
+// Initiate this this current balance when user comes to platform first.
+mapping(address=>uint256) private previousBalance;
+
 
     function claimRewards() external nonReentrant {
         require(block.timestamp>=claimDur[msg.sender],"Wait for the next distribution");
         require(balanceOf(msg.sender)>0 && !rewardClaimed[msg.sender]);
-        uint256 distAmount = (distributeTokens * balanceOf(msg.sender)) / (10 ** 18);
+        uint256 distAmount = (distributeTokens * previousBalance[msg.sender]) / (10 ** 18);
+        previousBalance[msg.sender]=0;
         _transfer(address(this), msg.sender, distAmount);
         rewardClaimed[msg.sender] = true;
         claimDur[msg.sender] = nextDistr;
