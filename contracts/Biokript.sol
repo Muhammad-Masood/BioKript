@@ -516,6 +516,10 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         super._transfer(from, to, amount - tax);
         super._transfer(from, address(this), tax); //owner(), tax);
         lastTransferStamp[msg.sender] = block.timestamp;
+        if(previousBalance[msg.sender]==0 && balanceOf(msg.sender)!=0){
+        // Initiate with current balance (updated when claimed)
+            previousBalance[msg.sender]==balanceOf(msg.sender);
+        }
     }
 
     function swapAndLiquify(uint256 tokens) private {
@@ -608,7 +612,8 @@ mapping(address=>uint256) private previousBalance;
         require(block.timestamp>=claimDur[msg.sender],"Wait for the next distribution");
         require(balanceOf(msg.sender)>0 && !rewardClaimed[msg.sender]);
         uint256 distAmount = (distributeTokens * previousBalance[msg.sender]) / (10 ** 18);
-        previousBalance[msg.sender]=0;
+        
+            previousBalance[msg.sender]==balanceOf(msg.sender);
         _transfer(address(this), msg.sender, distAmount);
         rewardClaimed[msg.sender] = true;
         claimDur[msg.sender] = nextDistr;
