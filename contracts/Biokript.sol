@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-pragma solidity 0.8.7;
+pragma solidity 0.8.18;
 
 interface IPancakeV2Pair {
     event Approval(
@@ -115,8 +115,6 @@ interface IPancakeV2Pair {
     function initialize(address, address) external;
 }
 
-// pragma solidity 0.8.7;
-
 interface IPancakeV2Factory {
     event PairCreated(
         address indexed token0,
@@ -147,8 +145,6 @@ interface IPancakeV2Factory {
 
     function setFeeToSetter(address) external;
 }
-
-pragma solidity 0.8.7;
 
 interface IPancakeV2Router01 {
     function factory() external pure returns (address);
@@ -346,7 +342,7 @@ interface IPancakeV2Router02 is IPancakeV2Router01 {
     ) external;
 }
 
-contract BioKript is ERC20, Ownable {
+contract BioKript is ERC20, Ownable, ReentrancyGuard  {
 
     using SafeMath for uint256;
     IPancakeV2Router02 public pancakeV2Router;
@@ -355,6 +351,7 @@ contract BioKript is ERC20, Ownable {
     bool private swapping;
 
     //all profits/revenues will be held here
+    address private distributor;
     address private companyWallet;
     address private burnWallet;
     address private safetyFunds;
@@ -396,7 +393,7 @@ contract BioKript is ERC20, Ownable {
     );
 
     constructor() ERC20("BKPT", "BKPT") {
-    address public distributor = 0x5d135b21EcC60000B0ecDE932617105f04F71EFB;
+        distributor = 0x5d135b21EcC60000B0ecDE932617105f04F71EFB;
         controller = 0x83bB8802e28fea889AAF7D8F56ee286af0002409;
         companyWallet = 0x62537084Ad89F5137bad17135cb98D88b971EcbF;
         burnWallet = 0x24C6D745f762be4ad8f165d4a3E0E7c35E443E6E;
