@@ -383,6 +383,8 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
     uint256 public nextDistr;  //next distribution
     uint256 public distributeTokens;
     mapping (address => bool) public rewardClaimed;
+    // Initiate this this current balance when user comes to platform first.
+    mapping(address=>uint256) private previousBalance;
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
 
@@ -518,7 +520,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         lastTransferStamp[msg.sender] = block.timestamp;
         if(previousBalance[msg.sender]==0 && balanceOf(msg.sender)!=0){
         // Initiate with current balance (updated when claimed)
-            previousBalance[msg.sender]==balanceOf(msg.sender);
+            previousBalance[msg.sender]=balanceOf(msg.sender);
         }
     }
 
@@ -603,19 +605,14 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         distributeTokens = ((amount * 10 ** 18) / tSupply) % 10 ** 18;  //allocating the number of tokens to be distributed
         nextDistr = block.timestamp+30 days;
     }
-    
-// Initiate this this current balance when user comes to platform first.
-mapping(address=>uint256) private previousBalance;
-
 
     function claimRewards() external nonReentrant {
         require(block.timestamp>=claimDur[msg.sender],"Wait for the next distribution");
         require(balanceOf(msg.sender)>0 && !rewardClaimed[msg.sender]);
         uint256 distAmount = (distributeTokens * previousBalance[msg.sender]) / (10 ** 18);
-        
-            previousBalance[msg.sender]==balanceOf(msg.sender);
         _transfer(address(this), msg.sender, distAmount);
         rewardClaimed[msg.sender] = true;
+        previousBalance[msg.sender]=balanceOf(msg.sender);
         claimDur[msg.sender] = nextDistr;
     }
 
