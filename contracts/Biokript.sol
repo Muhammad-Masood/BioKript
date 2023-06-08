@@ -379,6 +379,8 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
     uint256 public MAX_SWAP_LIMIT = 3; //3 Tokens
 
     //distribution and rewards
+    mapping (address => uint256) private claimDur;
+    uint256 public nextDistr;  //next distribution
     uint256 public distributeTokens;
     mapping (address => bool) public rewardClaimed;
 
@@ -410,6 +412,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         // exclude from paying fees or having max transaction amount
         excludeFromFees(owner(), true);
         excludeFromFees(address(this), true);
+        nextDistr = block.timestamp + 30 days;
         /*
             _mint is an internal function in ERC20.sol that is only called here,
             and CANNOT be called ever again
@@ -480,7 +483,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         address _from,
         address _to,
         uint256 _amount
-    ) internal returns (uint256) {
+    ) internal view returns (uint256) {
         //  require(isTradingEnabled,"Trading is not enabled");
         if (_from == pancakeV2Pair) {
             uint256 lFee = (_amount * liquidityFee) / 100;
@@ -580,6 +583,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
 
     function distributeInvestors() external {
         require(msg.sender == distributor, "Err: only distributor");
+        require(block.timestamp>=nextDistr,"Distribution duration not passed!"); 
         uint256 revenue = balanceOf(address(this));
         require(revenue > 0, "No revenue to distribute");
         uint256 comTax = (revenue * 40) / 100;
@@ -593,13 +597,16 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         uint256 amount = (revenue * 40) / 100;
         uint256 tSupply = totalSupply();
         distributeTokens = ((amount * 10 ** 18) / tSupply) % 10 ** 18;  //allocating the number of tokens to be distributed
+        nextDistr = block.timestamp+30 days;
     }
 
     function claimRewards() external nonReentrant {
+        require(block.timestamp>=claimDur[msg.sender],"Wait for the next distribution");
         require(balanceOf(msg.sender)>0 && !rewardClaimed[msg.sender]);
         uint256 distAmount = (distributeTokens * balanceOf(msg.sender)) / (10 ** 18);
         _transfer(address(this), msg.sender, distAmount);
         rewardClaimed[msg.sender] = true;
+        claimDur[msg.sender] = nextDistr;
     }
 
     function TokenAddress() public view returns (address) {
