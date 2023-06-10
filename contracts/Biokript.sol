@@ -414,7 +414,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         // exclude from paying fees or having max transaction amount
         excludeFromFees(owner(), true);
         excludeFromFees(address(this), true);
-        nextDistr = block.timestamp + 30 days;
+        nextDistr = block.timestamp + 3 minutes;
         /*
             _mint is an internal function in ERC20.sol that is only called here,
             and CANNOT be called ever again
@@ -518,7 +518,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         super._transfer(from, to, amount - tax);
         super._transfer(from, address(this), tax); //owner(), tax);
         lastTransferStamp[msg.sender] = block.timestamp;
-        if(previousBalance[msg.sender]==0 && balanceOf(msg.sender)!=0){
+        if(previousBalance[msg.sender]==0 && balanceOf(msg.sender)!=0 || previousBalance[to]==0 && balanceOf(to)!=0){
         // Initiate with current balance (updated when claimed)
             previousBalance[msg.sender]=balanceOf(msg.sender);
         }
@@ -603,15 +603,13 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         uint256 amount = (revenue * 40) / 100;
         uint256 tSupply = totalSupply();
         distributeTokens = ((amount * 10 ** 18) / tSupply) % 10 ** 18;  //allocating the number of tokens to be distributed
-        nextDistr = block.timestamp+30 days;
+        nextDistr = block.timestamp+2 minutes;
     }
 
     function claimRewards() external nonReentrant {
         require(block.timestamp>=claimDur[msg.sender],"Wait for the next distribution");
-        require(balanceOf(msg.sender)>0 && !rewardClaimed[msg.sender]);
         uint256 distAmount = (distributeTokens * previousBalance[msg.sender]) / (10 ** 18);
         _transfer(address(this), msg.sender, distAmount);
-        rewardClaimed[msg.sender] = true;
         previousBalance[msg.sender]=balanceOf(msg.sender);
         claimDur[msg.sender] = nextDistr;
     }
