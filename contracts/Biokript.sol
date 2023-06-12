@@ -366,7 +366,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
     //blacklisting
     uint256 public holdThreshold = 1000000 * 10 ** 18;
     mapping(address => bool) public blacklisted;
-    uint256 public constant blacklistThreshold = 3 minutes;
+    uint256 public blacklistThreshold = 3 minutes;
     mapping(address => uint256) public lastTransferStamp;
 
     //Buy and Sell Tax
@@ -481,6 +481,10 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         return blacklisted[_bot] = false;
     }
 
+    function setBlacklistThreshold(uint256 _timestamp) external onlyOwner{
+        blacklistThreshold = _timestamp;
+    }
+
     function calcTax(
         address _from,
         address _to,
@@ -493,6 +497,9 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         } else if (_to == pancakeV2Pair) {
             uint256 lFee = (_amount * liquidityFee) / 100;
             return (((_amount * sellTax) / 100) + lFee);
+        }
+        else {
+            return 0;
         }
     }
 
