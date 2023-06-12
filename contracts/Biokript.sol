@@ -502,13 +502,13 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         uint256 amount
     ) internal override {
         require(from != address(0) && to != address(0), "ERC20: zero address");
-        require(
-            !blacklisted[from] &&
-                !blacklisted[to] &&
-                lastTransferStamp[msg.sender] + blacklistThreshold <
-                block.timestamp,
-            "Err: Blacklist"
-        );
+        // require(
+        //     !blacklisted[from] &&
+        //         !blacklisted[to] &&
+        //         lastTransferStamp[msg.sender] + blacklistThreshold <=
+        //         block.timestamp,
+        //     "Err: Blacklist"
+        // );
         require(balanceOf(to) + amount <= holdThreshold, "Err: Max hold");
         uint256 tax = 0;
         // !_isExcludedFromFees[from] || !_isExcludedFromFees[to] &&
