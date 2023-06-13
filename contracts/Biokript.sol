@@ -363,11 +363,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
     // exlcude from fees and max transaction amount
     mapping(address => bool) public _isExcludedFromFees;
 
-    //blacklisting
     uint256 public holdThreshold = 1000000 * 10 ** 18;
-    mapping(address => bool) public blacklisted;
-    uint256 public blacklistThreshold = 3 minutes;
-    mapping(address => uint256) public lastTransferStamp;
 
     //Buy and Sell Tax
     uint256 public buyTax = 3; //3%
@@ -473,18 +469,6 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         return isTradingEnabled = _status;
     }
 
-    function addBlacklist(address _bot) external onlyOwner returns (bool) {
-        return blacklisted[_bot] = true;
-    }
-
-    function removeBlacklist(address _bot) external onlyOwner returns (bool) {
-        return blacklisted[_bot] = false;
-    }
-
-    function setBlacklistThreshold(uint256 _timestamp) external onlyOwner{
-        blacklistThreshold = _timestamp;
-    }
-
     function calcTax(
         address _from,
         address _to,
@@ -509,22 +493,13 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard  {
         uint256 amount
     ) internal override {
         require(from != address(0) && to != address(0), "ERC20: zero address");
-        // require(
-        //     !blacklisted[from] &&
-        //         !blacklisted[to] &&
-        //         lastTransferStamp[msg.sender] + blacklistThreshold <=
-        //         block.timestamp,
-        //     "Err: Blacklist"
-        // );
         require(balanceOf(to) + amount <= holdThreshold, "Err: Max hold");
         uint256 tax = 0;
-        // !_isExcludedFromFees[from] || !_isExcludedFromFees[to] &&
-        if (from == pancakeV2Pair || to == pancakeV2Pair) {
+        if (!_isExcludedFromFees[from] || !_isExcludedFromFees[to] && from == pancakeV2Pair || to == pancakeV2Pair) {
             tax = calcTax(from, to, amount);
         }
         super._transfer(from, to, amount - tax);
-        super._transfer(from, address(this), tax); //owner(), tax);
-        lastTransferStamp[msg.sender] = block.timestamp;
+        super._transfer(from, address(this), tax);
         if(previousBalance[msg.sender]==0 && balanceOf(msg.sender)!=0 || previousBalance[to]==0 && balanceOf(to)!=0){
         // Initiate with current balance (updated when claimed)
             previousBalance[msg.sender]=balanceOf(msg.sender);
