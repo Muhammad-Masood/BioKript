@@ -16,6 +16,9 @@ const config: HardhatUserConfig = {
       accounts: [priv_key as string],
   }
 },
+etherscan:{
+  apiKey:process.env.BSSCAN_API_KEY,
+}
 }
 
 export default config;

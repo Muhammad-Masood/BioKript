@@ -1,11 +1,10 @@
 import { ethers } from "hardhat";
-import hre from "hardhat";
 
 async function main() {
   const Biokript = await ethers.getContractFactory('BioKript');
   const BKPT = await Biokript.deploy();
   await BKPT.deployed();
-  console.log(`Deployed contract at address ${BKPT.getAddress()}`);
+  console.log(`Deployed contract at address ${await BKPT.getAddress()}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
