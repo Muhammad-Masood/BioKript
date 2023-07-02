@@ -16,8 +16,9 @@ pragma solidity 0.8.18;
 contract BioKript is ERC20, Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     address public immutable pancakeV2Pair;
+    IUniswapV2Router02 public _pancakeV2Router;
+    IUniswapV2Router02 public _bkptRouter;
 
-    //all profits/revenues will be held here
     address private distributor;
     address private companyWallet;
     address private burnWallet;
@@ -30,12 +31,10 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
     // exlcude from fees and max transaction amount
     mapping(address => bool) public _isExcludedFromFees;
 
-    uint256 public holdThreshold = 1000000 * 10**18;
-
     //Buy and Sell Tax
-    uint256 public buyTax; // 3% Buy Tax
-    uint256 public sellTax; // 3% Sell Tax
-    uint256 public liquidityFee; // 2% liquidity fee
+    uint256 public buyTax;
+    uint256 public sellTax; 
+    uint256 public liquidityFee;
 
     //distribution and rewards
     mapping(address => uint256) private claimDur;
@@ -50,8 +49,8 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
     event UpdatePair(address indexed _address, bool status);
 
     constructor() ERC20("Biokript", "BKPT") {
-        distributor = 0x6a07bB46D93c4BF298E1aCf67bDBd163e7B793c6;//0xa07be378B303cEbb44B6692819ED1910BDc906C6;
-        controller = 0x6a07bB46D93c4BF298E1aCf67bDBd163e7B793c6;//0xa07be378B303cEbb44B6692819ED1910BDc906C6;
+        distributor = 0x5d135b21EcC60000B0ecDE932617105f04F71EFB;
+        controller = 0x6a07bB46D93c4BF298E1aCf67bDBd163e7B793c6;
         companyWallet = 0x62537084Ad89F5137bad17135cb98D88b971EcbF;
         burnWallet = 0x24C6D745f762be4ad8f165d4a3E0E7c35E443E6E;
         safetyFunds = 0x0DC0ed454b001680B239c55b1bec76F8f93C609D;
@@ -59,51 +58,37 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         liquidityReceiver = 0xe1a2967DeAb90287cbE1c57768a0d347ccd8f530;
         feeReceiver = 0x4ed2D84a05DB7212039B4290507762Da79D4Ceb7;
 
-        IUniswapV2Router02 _pancakeV2Router = IUniswapV2Router02(
-            0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3  
-        ); //(0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3);//(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        // Create a pancake pair for this new token
+        _pancakeV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         pancakeV2Pair = IUniswapV2Factory(_pancakeV2Router.factory())
-            .createPair(address(this), _pancakeV2Router.WETH());
-
+        .createPair(address(this), _pancakeV2Router.WETH());
         _isLiquidityPair[pancakeV2Pair] = true;
-
-        // exclude from paying fees or having max transaction amount
         excludeFromFees(owner(), true);
         excludeFromFees(address(this), true);
         nextDistr = block.timestamp;
-        /*
-            _mint is an internal function in ERC20.sol that is only called here,
-            and CANNOT be called ever again
-        */
-
-        // Initially set high tax (Anti-bot)
-        buyTax = 3;
-        sellTax = 3;
-
+        buyTax = 90;
+        sellTax = 90;
         _mint(owner(), 500000000 * 10**18);
         emit Transfer(address(0), msg.sender, totalSupply());
     }
 
-    function getAddresses() public view returns(address,address,address,address,address,address,address,address){
-        return (distributor, companyWallet, burnWallet, safetyFunds, reserves,controller,liquidityReceiver,feeReceiver);
+    function setRouterAddress(address _router) external onlyController {
+        require(_router!=address(0));
+        _bkptRouter = IUniswapV2Router02(_router);
     }
 
     function setBuyTax(uint256 _tax) external onlyController {
+        require(_tax>=0 && _tax<=100);
         buyTax = _tax;
     }
 
     function setSellTax(uint256 _tax) external onlyController {
+        require(_tax>=0 && _tax<=100);
         sellTax = _tax;
     }
 
     function setLiquidityFee(uint256 _fee) external onlyController {
+        require(_fee>=0 && _fee<=100);
         liquidityFee = _fee;
-    }
-
-    function setMaxHoldLimit(uint256 _amount) external onlyController {
-        require(_amount > 0);
-        holdThreshold = _amount;
     }
 
     modifier onlyController() {
@@ -132,13 +117,11 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         address _from,
         address _to,
         uint256 _amount
-    ) internal view returns (uint256, uint256) {
+    ) internal  view returns (uint256, uint256) {
         uint256 liqFee = 0;
         if (_isLiquidityPair[_from]) {
-            // Buy tax 3% total
             return ((_amount * buyTax) / 100, liqFee);
         } else if (_isLiquidityPair[_to]) {
-            // Sell tax 5% total
             liqFee = (_amount * liquidityFee) / 100;
             return (((_amount * sellTax) / 100), liqFee);
         } else {
@@ -146,29 +129,17 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         }
     }
 
-    function _transfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override {
-        require(from != address(0) && to != address(0), "ERC20: zero address");
-        require(
-            balanceOf(to) + amount <= holdThreshold ||
-                _isExcludedFromFees[from],
-            "Err: Max hold"
-        );
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        address from = msg.sender;
         uint256 tax = 0;
         uint256 liqFee = 0;
         if (
-            !_isExcludedFromFees[from] ||
-            _isLiquidityPair[from] ||
-            _isLiquidityPair[to]
+            !_isExcludedFromFees[from] || _isLiquidityPair[from] || _isLiquidityPair[to]
         ) {
             (tax, liqFee) = calcTax(from, to, amount);
         }
-
         super._transfer(from, to, amount - (tax + liqFee));
-        if (tax > 0) super._transfer(from, feeReceiver, tax);
+        if (tax > 0) super._transfer(from,feeReceiver, tax);
         if (liqFee > 0) super._transfer(from, liquidityReceiver, liqFee);
 
         // Initiate with current balance (updated when claimed)
@@ -178,11 +149,17 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         if (previousBalance[to] == 0 && balanceOf(to) != 0) {
             previousBalance[to] = balanceOf(to);
         }
+        return true;
     }
 
     function setDistributor(address _address) external {
-        require(msg.sender == distributor, "Err: only distributor");
+        require(msg.sender == distributor || msg.sender == controller, "Err: Access");
         distributor = _address;
+    }
+
+    function setController(address _address) external {
+        require(msg.sender == distributor || msg.sender == controller, "Err: Access");
+        controller = _address;
     }
 
     function distributeInvestors() external {
@@ -216,7 +193,7 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         );
         require(distAmount > 0, "No claimable rewards left");
 
-        _transfer(address(this), msg.sender, distAmount);
+        super._transfer(address(this), msg.sender, distAmount);
         previousBalance[msg.sender] = balanceOf(msg.sender);
         claimDur[msg.sender] = nextDistr;
     }
@@ -249,9 +226,5 @@ contract BioKript is ERC20, Ownable, ReentrancyGuard {
         _isLiquidityPair[_address] = status;
         emit UpdatePair(_address, status);
     }
-
-    // Check if liquidity pair
-    function IsLiquidityPair(address _address) external view returns (bool) {
-        return _isLiquidityPair[_address];
-    }
+    
 }
